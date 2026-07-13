@@ -1,0 +1,57 @@
+suite: services
+templates:
+  - service-external.yaml
+  - service-query.yaml
+tests:
+  - it: external service defaults to NodePort with pinned ports
+    template: service-external.yaml
+    asserts:
+      - equal:
+          path: spec.type
+          value: NodePort
+      - equal:
+          path: spec.externalTrafficPolicy
+          value: Local
+      - contains:
+          path: spec.ports
+          content:
+            name: voice
+            port: 9987
+            targetPort: voice
+            protocol: UDP
+            nodePort: 30987
+      - contains:
+          path: spec.ports
+          content:
+            name: filetransfer
+            port: 30033
+            targetPort: filetransfer
+            protocol: TCP
+            nodePort: 30033
+  - it: external service omits nodePorts and traffic policy as ClusterIP
+    template: service-external.yaml
+    set:
+      service:
+        external:
+          type: ClusterIP
+    asserts:
+      - equal:
+          path: spec.type
+          value: ClusterIP
+      - notExists:
+          path: spec.externalTrafficPolicy
+      - notExists:
+          path: spec.ports[0].nodePort
+  - it: query service is headless and internal
+    template: service-query.yaml
+    asserts:
+      - equal:
+          path: spec.clusterIP
+          value: None
+      - contains:
+          path: spec.ports
+          content:
+            name: query
+            port: 10011
+            targetPort: query
+            protocol: TCP

@@ -1,0 +1,28 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "teamspeak3.fullname" . }}
+  labels:
+    {{- include "teamspeak3.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "teamspeak3.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    # Voice and file transfer: open to the world.
+    - ports:
+        - protocol: UDP
+          port: 9987
+        - protocol: TCP
+          port: 30033
+    # ServerQuery: same namespace only (also covers kubelet probes on most CNIs;
+    # if probes fail on your CNI, keep this policy disabled).
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 10011
+{{- end }}

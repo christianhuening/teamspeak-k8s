@@ -1,0 +1,9 @@
+apiVersion: v2
+name: teamspeak3
+description: TeamSpeak 3 voice server — single replica, SQLite on a PVC, restricted-PSA compliant
+type: application
+version: 0.1.0
+appVersion: "3.13.8"
+home: https://github.com/christianhuening/teamspeak-k8s
+sources:
+  - https://github.com/christianhuening/teamspeak-k8s

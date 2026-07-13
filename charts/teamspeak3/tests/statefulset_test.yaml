@@ -1,0 +1,79 @@
+suite: statefulset
+templates:
+  - statefulset.yaml
+tests:
+  - it: refuses to render without license acceptance
+    asserts:
+      - failedTemplate:
+          errorPattern: acceptLicense
+  - it: renders exactly one replica
+    set:
+      acceptLicense: true
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 1
+  - it: defaults the image tag to appVersion
+    set:
+      acceptLicense: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/christianhuening/teamspeak-k8s/ts3server:3.13.8
+  - it: is restricted-PSA compliant
+    set:
+      acceptLicense: true
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 9987
+      - equal:
+          path: spec.template.spec.securityContext.seccompProfile.type
+          value: RuntimeDefault
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation
+          value: false
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.capabilities.drop[0]
+          value: ALL
+  - it: does not automount the service account token
+    set:
+      acceptLicense: true
+    asserts:
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+  - it: wires the serveradmin password secret when configured
+    set:
+      acceptLicense: true
+      serverQuery:
+        existingSecret: ts3-admin
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TS3SERVER_SERVERADMIN_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: ts3-admin
+                key: serveradmin-password
+  - it: mounts data and tmp writable volumes
+    set:
+      acceptLicense: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: data
+            mountPath: /var/ts3server
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: tmp
+            mountPath: /tmp

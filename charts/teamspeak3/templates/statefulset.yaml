@@ -1,0 +1,127 @@
+{{- if not .Values.acceptLicense }}
+{{- fail "TeamSpeak requires accepting its license. Review https://www.teamspeak.com/en/privacy-and-terms/ and install with --set acceptLicense=true" }}
+{{- end }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "teamspeak3.fullname" . }}
+  labels:
+    {{- include "teamspeak3.labels" . | nindent 4 }}
+spec:
+  # TS3 cannot scale horizontally; a second pod would corrupt the SQLite DB.
+  replicas: 1
+  serviceName: {{ printf "%s-query" (include "teamspeak3.fullname" .) | trunc 63 | trimSuffix "-" }}
+  selector:
+    matchLabels:
+      {{- include "teamspeak3.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "teamspeak3.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 9987
+        runAsGroup: 9987
+        fsGroup: 9987
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: ts3server
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          {{- with .Values.extraArgs }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          env:
+            - name: TS3SERVER_LICENSE
+              value: accept
+            {{- if .Values.serverQuery.existingSecret }}
+            - name: TS3SERVER_SERVERADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.serverQuery.existingSecret }}
+                  key: serveradmin-password
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: voice
+              containerPort: 9987
+              protocol: UDP
+            - name: filetransfer
+              containerPort: 30033
+              protocol: TCP
+            - name: query
+              containerPort: 10011
+              protocol: TCP
+          startupProbe:
+            tcpSocket:
+              port: query
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            tcpSocket:
+              port: query
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: query
+            periodSeconds: 10
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/ts3server
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.persistence.storageClassName }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}

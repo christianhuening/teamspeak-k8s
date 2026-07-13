@@ -1,0 +1,68 @@
+# You must explicitly accept the TeamSpeak 3 server license to install this chart.
+# https://www.teamspeak.com/en/privacy-and-terms/
+acceptLicense: false
+
+image:
+  repository: ghcr.io/christianhuening/teamspeak-k8s/ts3server
+  # Defaults to the chart's appVersion. The "3.13.8" tag is mutable: it gets
+  # re-pushed on CVE rebuilds. With pullPolicy: IfNotPresent, a node that
+  # already pulled it never receives the fix. Production should pin the
+  # immutable "3.13.8-<git-sha>" tag published by each release instead.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  external:
+    # NodePort (default) | LoadBalancer | ClusterIP
+    type: NodePort
+    annotations: {}
+    # Only rendered for LoadBalancer type; requires an LB implementation (e.g. Cilium LB-IPAM).
+    loadBalancerIP: ""
+    externalTrafficPolicy: Local
+    voice:
+      port: 9987
+      nodePort: 30987
+    filetransfer:
+      # Must stay 30033: the server advertises this port to clients.
+      port: 30033
+      nodePort: 30033
+  query:
+    port: 10011
+
+serverQuery:
+  # Name of an existing Secret with key "serveradmin-password" to pin the
+  # serveradmin password. Empty: credentials appear in first-boot logs.
+  # When set, the Secret-provided password is appended last and overrides
+  # any serveradmin_password= passed via extraArgs.
+  existingSecret: ""
+
+persistence:
+  size: 5Gi
+  storageClassName: ""
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+networkPolicy:
+  enabled: false
+
+# Extra ts3server command-line parameters, e.g. ["voice_ip=0.0.0.0"].
+extraArgs: []
+# Extra environment variables (Kubernetes EnvVar objects).
+extraEnv: []
+
+podAnnotations: {}
+podLabels: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+priorityClassName: ""

@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Extract versions
+        id: ver
+        run: |
+          TS3_VERSION="$(sed -n 's/^ARG TS3_VERSION=//p' image/Dockerfile | head -n1)"
+          {
+            echo "ts3=$TS3_VERSION"
+            echo "chart=${GITHUB_REF_NAME#v}"
+            echo "sha7=${GITHUB_SHA::7}"
+          } >> "$GITHUB_OUTPUT"
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Build and push image with SBOM and provenance
+        run: |
+          IMAGE="ghcr.io/${{ github.repository }}/ts3server"
+          docker buildx create --use
+          docker buildx build image/ \
+            --platform linux/amd64 \
+            --sbom=true --provenance=mode=max \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --tag "$IMAGE:${{ steps.ver.outputs.ts3 }}" \
+            --tag "$IMAGE:${{ steps.ver.outputs.ts3 }}-${{ steps.ver.outputs.sha7 }}" \
+            --push
+      - name: Package and push chart
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+          helm package charts/teamspeak3 \
+            --version "${{ steps.ver.outputs.chart }}" \
+            --app-version "${{ steps.ver.outputs.ts3 }}"
+          helm push "teamspeak3-${{ steps.ver.outputs.chart }}.tgz" \
+            "oci://ghcr.io/${{ github.repository_owner }}/charts"
+      - name: Create GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes

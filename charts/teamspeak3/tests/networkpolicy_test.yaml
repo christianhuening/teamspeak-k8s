@@ -1,0 +1,36 @@
+suite: networkpolicy
+templates:
+  - networkpolicy.yaml
+tests:
+  - it: renders nothing by default
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: allows public voice/filetransfer and namespace-local query when enabled
+    set:
+      networkPolicy:
+        enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.policyTypes[0]
+          value: Ingress
+      - contains:
+          path: spec.ingress[0].ports
+          content:
+            protocol: UDP
+            port: 9987
+      - contains:
+          path: spec.ingress[0].ports
+          content:
+            protocol: TCP
+            port: 30033
+      - contains:
+          path: spec.ingress[1].ports
+          content:
+            protocol: TCP
+            port: 10011
+      - equal:
+          path: spec.ingress[1].from[0].podSelector
+          value: {}

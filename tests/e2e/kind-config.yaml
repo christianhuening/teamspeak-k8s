@@ -1,0 +1,13 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    # Host mappings so a real TeamSpeak client can connect to a local kind
+    # cluster for manual testing. CI assertions don't depend on these.
+    extraPortMappings:
+      - containerPort: 30987
+        hostPort: 30987
+        protocol: UDP
+      - containerPort: 30033
+        hostPort: 30033
+        protocol: TCP

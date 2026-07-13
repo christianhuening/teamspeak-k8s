@@ -1,0 +1,49 @@
+TeamSpeak 3 server deployed as {{ include "teamspeak3.fullname" . }} in namespace {{ .Release.Namespace }}.
+
+{{- if .Values.serverQuery.existingSecret }}
+
+1. First install only — retrieve the admin privilege key (token) from the
+   logs. The serveradmin ServerQuery password is not printed: it comes from
+   the "{{ .Values.serverQuery.existingSecret }}" Secret you configured.
+
+   kubectl logs -n {{ .Release.Namespace }} {{ include "teamspeak3.fullname" . }}-0 | grep -E 'token='
+
+   Save the token somewhere safe: it is only printed on first boot.
+{{- else }}
+
+1. First install only — retrieve the admin privilege key (token) and the
+   serveradmin ServerQuery password from the logs:
+
+   kubectl logs -n {{ .Release.Namespace }} {{ include "teamspeak3.fullname" . }}-0 | grep -E 'token=|password'
+
+   Save both somewhere safe: they are only printed on first boot.
+{{- end }}
+
+2. Connect a TeamSpeak client:
+{{- if eq .Values.service.external.type "NodePort" }}
+
+   Voice:         <node-public-ip>:{{ .Values.service.external.voice.nodePort }}  (UDP)
+   File transfer: <node-public-ip>:{{ .Values.service.external.filetransfer.nodePort }}  (TCP)
+
+   DNS setup: create an A record for your TeamSpeak hostname pointing at the
+   node's public IP. Optionally add an SRV record so clients can omit the port:
+
+     _ts3._udp.<hostname>.  3600 IN SRV 0 5 {{ .Values.service.external.voice.nodePort }} <hostname>.
+
+   externalTrafficPolicy is "Local": point the A record at the node running the pod (pin it with nodeSelector), or set service.external.externalTrafficPolicy=Cluster to accept traffic on any node (loses client source IPs).
+{{- else if eq .Values.service.external.type "LoadBalancer" }}
+
+   Voice:         <load-balancer-ip>:{{ .Values.service.external.voice.port }}  (UDP)
+   File transfer: <load-balancer-ip>:{{ .Values.service.external.filetransfer.port }}  (TCP)
+
+   Find the IP: kubectl get svc -n {{ .Release.Namespace }} {{ include "teamspeak3.fullname" . }}-external
+{{- else }}
+
+   The external service is ClusterIP — clients outside the cluster cannot
+   connect. Switch service.external.type to NodePort or LoadBalancer.
+{{- end }}
+
+3. ServerQuery (admin CLI) is cluster-internal only. To use it:
+
+   kubectl port-forward -n {{ .Release.Namespace }} {{ include "teamspeak3.fullname" . }}-0 10011:10011
+   Then: telnet 127.0.0.1 10011

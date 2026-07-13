@@ -1,0 +1,16 @@
+# Headless: doubles as the StatefulSet's governing service. ServerQuery stays cluster-internal.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ printf "%s-query" (include "teamspeak3.fullname" .) | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "teamspeak3.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  selector:
+    {{- include "teamspeak3.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: query
+      port: {{ .Values.service.query.port }}
+      targetPort: query
+      protocol: TCP
