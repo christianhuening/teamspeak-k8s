@@ -2,7 +2,7 @@
 # the one "ARG TS3_VERSION=" line. Stages re-declare it bare to inherit this.
 ARG TS3_VERSION=3.13.8
 
-FROM cgr.dev/chainguard/wolfi-base:latest@sha256:02dab76bd852a70556b5b2002195c8a5fdab77d323c433bf6642aab080489795 AS download
+FROM cgr.dev/chainguard/wolfi-base:latest@sha256:003627df3c1e1bba0c4116afcddb314aca9594ee2328c7e876a8081a6c988b2e AS download
 
 ARG TS3_VERSION
 ARG TS3_SHA256=a3c4658e09892d3dbd8ea752d0de42dc7d111bf44d09721927f0f4782496eb2d
@@ -18,7 +18,7 @@ RUN apk add --no-cache curl bzip2 \
  && tar -xjf /tmp/ts3server.tar.bz2 --strip-components=1 -C /opt/ts3server \
  && rm -rf /opt/ts3server/tsdns /opt/ts3server/redist
 
-FROM cgr.dev/chainguard/wolfi-base:latest@sha256:02dab76bd852a70556b5b2002195c8a5fdab77d323c433bf6642aab080489795
+FROM cgr.dev/chainguard/wolfi-base:latest@sha256:003627df3c1e1bba0c4116afcddb314aca9594ee2328c7e876a8081a6c988b2e
 
 ARG TS3_VERSION
 
